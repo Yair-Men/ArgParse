@@ -11,10 +11,24 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        ArgParser argParser = new(args);
-        var parsedArgs = argParser.Parse<ArgsOptions>();
+        ArgParser parser = new(args);
+        var parsedArgs = parser.Parse<ArgsOptions>();
 
-        Console.WriteLine("[!] Command={1}", parsedArgs.Command);
+        /// Check if primitives (Non-nullable) types are set
+        if (parser.IsSet(parsedArgs.Session)) 
+            Console.WriteLine("[!] Session is set");
+        else
+            Console.WriteLine("[!] Session is not set");
+
+
+        /// Check if ref (nullable) types are set
+        if (parsedArgs.Interactive is not null) 
+            Console.WriteLine("[!] Interactive is set");
+        else
+            Console.WriteLine("[!] Interactive is not set");
+
+
         ArgParser.PrintArgsDebug(parsedArgs);
     }
+
 }

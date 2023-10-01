@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace Args;
@@ -12,11 +13,11 @@ namespace Args;
 // 3. Add support/parsing for Properties of type Enum
 // 4. Add logic for boolean properties (if exists as CLI arg without value, then true)
 
-internal class ArgParser
+public class ArgParser
 {
     public IEnumerable<string> RawArgs { get; }
-    public Dictionary<string, string> ParsedArgsDict{ get; private set; }
-    
+    public Dictionary<string, string> ParsedArgsDict { get; private set; }
+
     public ArgParser(string[] args)
     {
         RawArgs = args;
@@ -29,21 +30,21 @@ internal class ArgParser
     /// <typeparam name="TModuleArgs">The class with the arguments delcared with ArgAttribute</typeparam>
     /// <returns>A new instance of the class with all the params populated in the desired data type (Declared args whom not given in the CLI, are null or default)</returns>
     /// <exception cref="Exception">throws when the given class(TModuleArgs) does not contains any instance props with Attribute Args</exception>
-    internal TModuleArgs Parse<TModuleArgs>() where TModuleArgs : class, new()
+    public TModuleArgs Parse<TModuleArgs>() where TModuleArgs : class, new()
     {
 
         // Get all properties (args) for current Module
         var props = typeof(TModuleArgs).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.GetProperty).Where(m => m.IsDefined(typeof(ArgsAttribute)));
-        
-        
+
+
         // Error For dev (The given class have no props decorated with ArgsAttribute)
         if (props.Count() == 0)
         {
             throw new Exception(String.Format("[-] Class '{0}' does not have any members implements '{1}'", typeof(TModuleArgs).FullName, nameof(ArgsAttribute)));
         }
-        
+
         ParsedArgsDict = MyParser(RawArgs);
-        
+
         TModuleArgs parsedArgs = new();
 
         /// Check if the user supplied args, exist and declared as an ArgsAttribute
@@ -52,24 +53,25 @@ internal class ArgParser
         {
             var argAttribute = prop.GetCustomAttribute<ArgsAttribute>();
             string content = String.Empty;
-
+            
             if (
-                ParsedArgsDict.TryGetValue(argAttribute.LongName, out content) || 
+                ParsedArgsDict.TryGetValue(argAttribute.LongName, out content) ||
                 (argAttribute.ShortName is not null && ParsedArgsDict.TryGetValue(argAttribute.ShortName, out content))
                 )
             {
                 // Check if its a Nullable type. If is does, we need the underlying type or else we crash
                 Type safeType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
-                
+
                 try
                 {
                     prop.SetValue(parsedArgs, Convert.ChangeType(content, safeType));
                 }
-                catch (System.FormatException) // We couldn't convert the argument to the desired type
+                catch (Exception ex) when (ex is FormatException || ex is InvalidCastException) // We couldn't convert the argument to the desired type
                 {
                     Console.WriteLine($"[-] Invalid value ({content}) for argument '{argAttribute.LongName}'. (Expected type: {prop.PropertyType.Name})");
                     Environment.Exit(0);
                 }
+                argAttribute.IsSet = true;
             }
             else
             {
@@ -83,6 +85,27 @@ internal class ArgParser
 
         return parsedArgs;
     }
+
+    /// <summary>
+    /// Check if the argument was actually set with a valid value, to not crash at runtime.
+    /// Using "Convert.ChangeType" with primitive types (Like int) will set their value to 0 (If arg was not given, or given without value)
+    /// This is not good when 0 is actually a valid value the developer expects/checks
+    /// </summary>
+    /// <typeparam name="Targ">The argument type</typeparam>
+    /// <param name="arg">the parsed argument</param>
+    /// <returns>Whether this argument was set with a value correctly</returns>
+    public bool IsSet<Targ>(Targ arg) where Targ : struct // We don't need ref types as they're nullable
+    {
+        bool set = false;
+        try
+        {
+            set = arg.GetType().GetCustomAttribute<ArgsAttribute>().IsSet;
+        }
+        catch (NullReferenceException) { }
+
+        return set;
+    }
+        
 
 
     /// <summary>

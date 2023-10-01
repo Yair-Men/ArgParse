@@ -9,6 +9,7 @@ public class ArgsAttribute : Attribute
     public string ShortName { get; set; }
     public bool Required { get; set; } = false;
     public string Description { get; set; } = String.Empty;
+    public bool IsSet { get; set; } = false;
 
     public ArgsAttribute(string longName)
     {
