@@ -9,5 +9,10 @@ Support parsing arguments from CLI in various methods for ease of use:
 /argName=argvalue
 ```
 
-The cli arguments are case-insensitive (Only keys, not values).
-Converts the cli arg data type (string) to the desired/declared type.
+The CLI arguments parsed with case-insensitive (Only keys, not values) and converted (from string) to the desired/declared type.
+
+## Arguments check
+- Non-nullable/primitives data types get the default value if not provided from the CLI (i.e. enum/int = 0)
+Therefore, use the `IsSet` method on the instantiated `ArgParser` object
+- Nullable/ref type can simply be checked if they are null
+<br>See example in [Program.cs](ArgParser/Program.cs)
