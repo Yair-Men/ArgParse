@@ -21,6 +21,17 @@ internal class ArgsOptions
     public string Interactive { get; set; }
     
     [Args("changeacl", ShortName = "ca")]
-    public string ChangeACL { get; set; }
+    public AclActions ChangeACL { get; set; }
+
+    [Args("getadmin", ShortName = "ga")]
+    public bool GetAdmin { get; set; }
 
 }
+
+internal enum AclActions
+{
+    All,
+    Dynamic,
+    Sid,
+    User
+};

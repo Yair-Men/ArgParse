@@ -20,6 +20,8 @@ internal class Program
         else
             Console.WriteLine("[!] Session is not set");
 
+        if (parser.IsSet(parsedArgs.ChangeACL))
+            Console.WriteLine($"[!] Enum value: {parsedArgs.ChangeACL}");
 
         /// Check if ref (nullable) types are set
         if (parsedArgs.Interactive is not null) 

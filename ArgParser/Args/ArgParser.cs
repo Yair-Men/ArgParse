@@ -7,10 +7,10 @@ using System.Text.RegularExpressions;
 namespace Args;
 
 // ToDo:
-// 1. Implement Help method to print all args name (Long/Short), description, and if required
+// 1. Implement Help method to print all args name (Long/Short), description, and if Required
 // 2. Add support for modules (Where the first positional argument is the module name)
-// 3. Add support/parsing for Properties of type Enum
-// 4. Add logic for boolean properties (if exists as CLI arg without value, then true)
+// 3. Add support/parsing for Properties of type Enum                                           - DONE
+// 4. Add logic for boolean properties (if exists as CLI arg without value, then true)          - DONE
 
 public class ArgParser
 {
@@ -47,10 +47,12 @@ public class ArgParser
         TModuleArgs parsedArgs = new();
 
         /// Check if the user supplied args, exist and declared as an ArgsAttribute
-        /// Convert the argument to its corresponds (ArgsAttribute) prop type, and set value
+        /// Convert the argument to its corresponding (ArgsAttribute) prop type, and set value
         foreach (var prop in props)
         {
             var argAttribute = prop.GetCustomAttribute<ArgsAttribute>();
+            argAttribute.IsSet = false; // Double check to prevent from user to accidently set this via the attribute fields when declaring arguments
+
             string content = String.Empty;
             
             if (
@@ -58,16 +60,30 @@ public class ArgParser
                 (argAttribute.ShortName is not null && ParsedArgsDict.TryGetValue(argAttribute.ShortName, out content))
                 )
             {
-                // Check if its a Nullable type. If is does, we need the underlying type or else we crash
+                // Check if its a Nullable type. If it does, we need the underlying type or else we crash
                 Type safeType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
 
                 try
                 {
-                    prop.SetValue(parsedArgs, Convert.ChangeType(content, safeType));
+                    if (safeType.IsEnum)
+                    {
+                        if (String.IsNullOrEmpty(content))
+                            throw new FormatException();
+                        
+                        prop.SetValue(parsedArgs, Enum.Parse(safeType, content, true));
+                    }
+                    else if(safeType.Equals(typeof(Boolean))) // If we have a boolean, it is enough to have it on the CLI without any value to set as true
+                    {
+                        prop.SetValue(parsedArgs, true);
+                    }
+                    else
+                    {
+                        prop.SetValue(parsedArgs, Convert.ChangeType(content, safeType));
+                    }
                 }
                 catch (Exception ex) when (ex is FormatException || ex is InvalidCastException) // We couldn't convert the argument to the desired type
                 {
-                    Console.WriteLine($"[-] Invalid value ({content}) for argument '{argAttribute.LongName}'. (Expected type: {prop.PropertyType.Name})");
+                    Console.WriteLine($"[-] Invalid value '{content}' for argument '{argAttribute.LongName}'. (Expected type: {prop.PropertyType.Name})");
                     Environment.Exit(0);
                 }
                 argAttribute.IsSet = true;
@@ -98,7 +114,7 @@ public class ArgParser
         bool set = false;
         try
         {
-            set = arg.GetType().GetCustomAttribute<ArgsAttribute>().IsSet;
+            set = arg.GetType().GetCustomAttribute<ArgsAttribute>()?.IsSet ?? false;
         }
         catch (NullReferenceException) { }
 
@@ -126,7 +142,7 @@ public class ArgParser
             string argValue = String.Empty;
             string argName = String.Empty;
 
-            Match dashMatch = dashRx.Match(arg); // --argument || -arg
+            Match dashMatch = dashRx.Match(arg); // --argument VALUE || -arg VALUE
             Match slashMatch = slashRx.Match(arg); // /arg:VALUE || /arg=VALUE
 
             /// When dashMatch, the value for the arg may:
@@ -173,7 +189,7 @@ public class ArgParser
 
 #if DEBUG
     /// <summary>
-    /// Method for debugging. List all delcared props and their value as recived from CLI
+    /// Method for debugging. List all delcared props and their value as recived from CLI (or default if arg not given)
     /// </summary>
     /// <typeparam name="T">The class with the ArgAttribute arguments </typeparam>
     /// <param name="args">The parsed args</param>
