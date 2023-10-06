@@ -14,8 +14,9 @@ namespace Args;
 
 public class ArgParser
 {
-    public IEnumerable<string> RawArgs { get; }
-    public Dictionary<string, string> ParsedArgsDict { get; private set; }
+    private IEnumerable<string> RawArgs { get; }
+    public Dictionary<string, string> ParsedArgsDict { get; private set; } /// Leave public getter for old school access
+    private Dictionary<string, ArgsAttribute> _argsAttributesDict { get; set; } = new();
 
     public ArgParser(string[] args)
     {
@@ -45,7 +46,7 @@ public class ArgParser
         ParsedArgsDict = MyParser(RawArgs);
 
         TModuleArgs parsedArgs = new();
-
+        
         /// Check if the user supplied args, exist and declared as an ArgsAttribute
         /// Convert the argument to its corresponding (ArgsAttribute) prop type, and set value
         foreach (var prop in props)
@@ -96,6 +97,7 @@ public class ArgParser
                     Environment.Exit(0);
                 }
             }
+            _argsAttributesDict.Add(prop.Name, argAttribute);
         }
 
         return parsedArgs;
@@ -103,24 +105,26 @@ public class ArgParser
 
     /// <summary>
     /// Check if the argument was actually set with a valid value, to not crash at runtime.
-    /// Using "Convert.ChangeType" with primitive types (Like int) will set their value to 0 (If arg was not given, or given without value)
+    /// Using "Convert.ChangeType" with primitive types (Like int/uint) will set their value to 0 (If arg was not given)
     /// This is not good when 0 is actually a valid value the developer expects/checks
     /// </summary>
-    /// <typeparam name="Targ">The argument type</typeparam>
-    /// <param name="arg">the parsed argument</param>
-    /// <returns>Whether this argument was set with a value correctly</returns>
-    public bool IsSet<Targ>(Targ arg) where Targ : struct // We don't need ref types as they're nullable
+    /// <param name="argName">The Property (argument) name. use nameof() for ease</param>
+    /// <returns></returns>
+    public bool IsSet(string argName)
     {
         bool set = false;
         try
         {
-            set = arg.GetType().GetCustomAttribute<ArgsAttribute>()?.IsSet ?? false;
+            if (_argsAttributesDict.TryGetValue(argName, out ArgsAttribute a))
+            {
+                return a.IsSet;
+            }
         }
         catch (NullReferenceException) { }
 
         return set;
     }
-        
+
 
 
     /// <summary>
