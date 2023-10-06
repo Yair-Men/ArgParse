@@ -70,8 +70,14 @@ public class ArgParser
                     {
                         if (String.IsNullOrEmpty(content))
                             throw new FormatException();
-                        
-                        prop.SetValue(parsedArgs, Enum.Parse(safeType, content, true));
+                        try
+                        {  
+                            prop.SetValue(parsedArgs, Enum.Parse(safeType, content, true)); 
+                        }
+                        catch 
+                        { 
+                            throw new InvalidCastException(); 
+                        }
                     }
                     else if(safeType.Equals(typeof(Boolean))) // If we have a boolean, it is enough to have it on the CLI without any value to set as true
                     {
