@@ -90,7 +90,12 @@ public class ArgParser
                 }
                 catch (Exception ex) when (ex is FormatException || ex is InvalidCastException) // We couldn't convert the argument to the desired type
                 {
-                    Console.WriteLine($"[-] Invalid value '{content}' for argument '{argAttribute.LongName}'. (Expected type: {prop.PropertyType.Name})");
+                    string message = String.Format("[-] Invalid value '{0}' for argument '{1}'. (Expected type: {2}{3})",
+                        content,
+                        argAttribute.LongName,
+                        prop.PropertyType.Name,
+                        safeType.IsEnum ? " [" + string.Join(", ", Enum.GetNames(safeType)) + "]" : null);
+                    Console.WriteLine(message);
                     Environment.Exit(0);
                 }
                 argAttribute.IsSet = true;
