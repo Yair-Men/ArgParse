@@ -13,7 +13,7 @@ public class ArgParser
     public Dictionary<string, string> ParsedArgsDict { get; private set; } /// Leave public getter for old school access
     private Dictionary<string, ArgsAttribute> _argsAttributesDict { get; set; } = new();
     public string ModuleName { get; } = null;
-    private static IEnumerable<string> ModulesList { get; set; }
+    private static IEnumerable<ModuleAttribute> ModulesList { get; set; }
 
     private ArgParser(IEnumerable<string> args, string moduleName = null)
     {
@@ -35,11 +35,14 @@ public class ArgParser
             let attributes = t.GetCustomAttributes(typeof(ModuleAttribute), true)
             where attributes != null && attributes.Length > 0
             let modules = attributes.Cast<ModuleAttribute>().FirstOrDefault(x => x is not null)
-            select modules?.ModuleName.ToLower();
+            select modules;
 
         if (args.Length == 0)
         {
-            Console.WriteLine("[-] Usage: {0}ARGS", withModule ? "MODULE " : null);
+            Console.WriteLine("[-] Usage: {0} {1}ARGS",
+                AppDomain.CurrentDomain.FriendlyName,
+                withModule ? "MODULE " : null);
+
             if (withModule)
                 PrintModulesName(exitProgram: true);
         }
@@ -50,7 +53,7 @@ public class ArgParser
         }
        
         string moduleName = args[0].ToLower();
-        if(!ModulesList.Contains(moduleName))
+        if(!ModulesList.Any(m => m.ModuleName.ToLower() == moduleName))
         {
             Console.WriteLine("[-] No such module '{0}'", moduleName);
             if (withModule)
@@ -68,11 +71,12 @@ public class ArgParser
     /// <param name="exitProgram">Whether to terminate the program or not after printing the modules</param>
     private static void PrintModulesName(bool exitProgram = false)
     {
-        Console.WriteLine("Available Modules:");
+        Console.WriteLine("Modules:");
 
-        foreach (string module in ModulesList)
-            Console.WriteLine($"- {module}");
+        foreach (var module in ModulesList)
+            Console.WriteLine($"- {module.ModuleName,-10} {module.Description}");
         
+
         if (exitProgram)
             Environment.Exit(0);
     }

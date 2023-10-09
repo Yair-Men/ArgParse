@@ -2,7 +2,7 @@
 
 namespace ArgParserTemplate.Modules;
 
-[Module("create")]
+[Module("create", Description = "Create a new user")]
 public class CreateArgs
 {
     [Args("username", ShortName = "u", Description = "The name of the user", Required = true)]

@@ -2,7 +2,7 @@
 
 namespace ArgParserTemplate.Modules;
 
-[Module("list")]
+[Module("list", Description = "List all users")]
 public class ListArgs
 {
     [Args("id", Required = true)]
