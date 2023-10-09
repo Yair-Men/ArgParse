@@ -6,7 +6,7 @@ namespace ArgParserTemplate.Modules;
 public class ListArgs
 {
     [Args("id", Required = true)]
-    public string Id { get; set; }
+    public uint Id { get; set; }
 
     [Args("username", ShortName = "u")]
     public string UserName { get; set; }

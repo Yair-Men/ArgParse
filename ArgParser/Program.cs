@@ -2,6 +2,7 @@
 
 using ArgParserTemplate.Modules;
 using System;
+using Args;
 
 namespace ArgParserTemplate;
 
@@ -14,7 +15,8 @@ internal class Program
     static void Main(string[] args)
     {
 #if EXAMPLE_WITHOUT_MODULES
-         var parser = Args.ArgParser.Init(args);
+        var parser = ArgParser.Init(args);
+
         var parsedArgs = parser.Parse<ArgsOptions>();
 
         /// Check if primitives (Non-nullable) types are set
@@ -40,7 +42,7 @@ internal class Program
             Console.WriteLine("[!] Interactive is not set");
 
 #elif EXAMPLE_WITH_MODULES
-         var parser = Args.ArgParser.Init(args, true);
+        var parser = ArgParser.Init(args, true);
 
         switch (parser.ModuleName)
         {
@@ -62,7 +64,7 @@ internal class Program
 
 #if EXAMPLE_WITH_MODULES
     private static void DoCreate(CreateArgs args) => Console.WriteLine("Create module execution flow");
-    private static void DoList(ListArgs args) => Console.WriteLine("List module execution flow");
+    private static void DoList(ListArgs args) =>  Console.WriteLine("List module execution flow");
 
 #endif
 

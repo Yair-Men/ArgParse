@@ -6,11 +6,6 @@ using System.Text.RegularExpressions;
 
 namespace Args;
 
-// ToDo:
-// 1. Implement Help method to print all args name (Long/Short), description, and if Required
-// 2. Add support for modules (Where the first positional argument is the module name)
-// 3. Add support/parsing for Properties of type Enum                                           - DONE
-// 4. Add logic for boolean properties (if exists as CLI arg without value, then true)          - DONE
 
 public class ArgParser
 {
@@ -18,6 +13,7 @@ public class ArgParser
     public Dictionary<string, string> ParsedArgsDict { get; private set; } /// Leave public getter for old school access
     private Dictionary<string, ArgsAttribute> _argsAttributesDict { get; set; } = new();
     public string ModuleName { get; } = null;
+    private static IEnumerable<string> ModulesList { get; set; }
 
     private ArgParser(IEnumerable<string> args, string moduleName = null)
     {
@@ -25,13 +21,27 @@ public class ArgParser
         ModuleName = moduleName;
     }
 
+    /// <summary>
+    /// First checks. If we got arguments, if this is module based program then match the given module
+    /// </summary>
+    /// <param name="args">The ars received from user via the CLI</param>
+    /// <param name="withModule">If there are modules in the program execution flow</param>
+    /// <returns>A new instace of ArgParser to be use with the parse method to populate the arguments</returns>
     public static ArgParser Init(string[] args, bool withModule = false)
     {
+        ModulesList =
+            from a in AppDomain.CurrentDomain.GetAssemblies()
+            from t in a.GetTypes()
+            let attributes = t.GetCustomAttributes(typeof(ModuleAttribute), true)
+            where attributes != null && attributes.Length > 0
+            let modules = attributes.Cast<ModuleAttribute>().FirstOrDefault(x => x is not null)
+            select modules?.ModuleName.ToLower();
 
         if (args.Length == 0)
         {
             Console.WriteLine("[-] Usage: {0}ARGS", withModule ? "MODULE " : null);
-            Environment.Exit(0);
+            if (withModule)
+                PrintModulesName(exitProgram: true);
         }
 
         if (!withModule)
@@ -40,30 +50,31 @@ public class ArgParser
         }
        
         string moduleName = args[0].ToLower();
-
-        var props =
-            from a in AppDomain.CurrentDomain.GetAssemblies()
-            from t in a.GetTypes()
-            let attributes = t.GetCustomAttributes(typeof(ModuleAttribute), true)
-            where attributes != null && attributes.Length > 0
-            let modules = attributes.Cast<ModuleAttribute>().FirstOrDefault(x => x is not null)
-            select modules?.ModuleName.ToLower();
-
-
-        
-        if(!props.Contains(moduleName))
+        if(!ModulesList.Contains(moduleName))
         {
             Console.WriteLine("[-] No such module '{0}'", moduleName);
-            
-            Console.WriteLine("Available Modules:");
-            foreach (string module in props)
-                Console.WriteLine($"- {module}");
-            
-            Environment.Exit(0);
+            if (withModule)
+                PrintModulesName(exitProgram: true);
         }
-
+#if DEBUG
         Console.WriteLine("[!] Found Module: {0}", moduleName);
+#endif
         return new ArgParser(args.Skip(1), moduleName);
+    }
+
+    /// <summary>
+    /// Format and prints all available modules
+    /// </summary>
+    /// <param name="exitProgram">Whether to terminate the program or not after printing the modules</param>
+    private static void PrintModulesName(bool exitProgram = false)
+    {
+        Console.WriteLine("Available Modules:");
+
+        foreach (string module in ModulesList)
+            Console.WriteLine($"- {module}");
+        
+        if (exitProgram)
+            Environment.Exit(0);
     }
 
     /// <summary>
@@ -93,7 +104,6 @@ public class ArgParser
 
         TModuleArgs parsedArgs = new();
 
-        var t = props.Cast<ArgsAttribute>(); // TODO: Check what is t
 
         /// Check if the user supplied args, exist and declared as an ArgsAttribute
         /// Convert the argument to its corresponding (ArgsAttribute) prop type, and set value
@@ -119,8 +129,15 @@ public class ArgParser
                         if (String.IsNullOrEmpty(content))
                             throw new FormatException();
                         try
-                        {  
-                            prop.SetValue(parsedArgs, Enum.Parse(safeType, content, true)); 
+                        {
+                            string[] enumKeys = Enum.GetNames(safeType);
+
+                            /// Using Contains on the Enum keys to avoid getting int/uint from the user to be parsed into a valid (or invalid) key
+                            //if (enumKeys.Contains(content.ToLower()))
+                            if (enumKeys.Any(x => x.ToLower() == content.ToLower()))
+                                prop.SetValue(parsedArgs, Enum.Parse(safeType, content, true));
+                            else
+                                throw new FormatException();
                         }
                         catch 
                         { 
@@ -138,12 +155,12 @@ public class ArgParser
                 }
                 catch (Exception ex) when (ex is FormatException || ex is InvalidCastException) // We couldn't convert the argument to the desired type
                 {
-                    string message = String.Format("[-] Invalid value '{0}' for argument '{1}'. (Expected type: {2}{3})",
+                    Console.WriteLine("[-] Invalid value '{0}' for argument '{1}'. (Expected type: {2}{3})", 
                         content,
                         argAttribute.LongName,
                         prop.PropertyType.Name,
                         safeType.IsEnum ? " [" + string.Join(", ", Enum.GetNames(safeType)) + "]" : null);
-                    Console.WriteLine(message);
+                    
                     Environment.Exit(0);
                 }
                 argAttribute.IsSet = true;
@@ -186,21 +203,23 @@ public class ArgParser
     }
 
 
-
+    /// <summary>
+    /// Print arguments per module (or arguments of Non-modules project)
+    /// </summary>
+    /// <typeparam name="TModuleArgs">The aguments class</typeparam>
     public void PrintArgsHelp<TModuleArgs>()
     {
-
         Console.WriteLine("Arguments:");
-        var moduleArgs = typeof(TModuleArgs).GetProperties();
-        
+
+        var moduleArgs = typeof(TModuleArgs).GetProperties().Where(x => x.IsDefined(typeof(ArgsAttribute)));
         foreach (var prop in moduleArgs)
         {
             var arg = prop.GetCustomAttribute<ArgsAttribute>();
             
             string helpFormat = String.Format("--{0}{1}{2}",
                 arg.LongName, 
-                arg.ShortName != null ? $",-{arg.ShortName}" : null,
-                "\t" + arg.Description);
+                arg.ShortName != null ? $", -{arg.ShortName}" : null,
+                arg.Description != null ? $"\t'{arg.Description}'" : null);
 
             Console.WriteLine(helpFormat);
         }
