@@ -218,11 +218,13 @@ public class ArgParser
         var moduleArgs = typeof(TModuleArgs).GetProperties().Where(x => x.IsDefined(typeof(ArgsAttribute)));
         foreach (var prop in moduleArgs)
         {
+            Type safeType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
             var arg = prop.GetCustomAttribute<ArgsAttribute>();
             
-            string helpFormat = String.Format("--{0}{1}{2}",
+            string helpFormat = String.Format("--{0}{1} ({2}) {3}",
                 arg.LongName, 
                 arg.ShortName != null ? $", -{arg.ShortName}" : null,
+                safeType.Name + (arg.Required ? ", Required" : null),
                 arg.Description != null ? $"\t'{arg.Description}'" : null);
 
             Console.WriteLine(helpFormat);
