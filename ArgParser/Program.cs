@@ -1,5 +1,7 @@
-﻿using System;
-using Args;
+﻿#define EXAMPLE_WITH_MODULES // EXAMPLE_WITH_MODULES | EXAMPLE_WITHOUT_MODULES
+
+using ArgParserTemplate.Modules;
+using System;
 
 namespace ArgParserTemplate;
 
@@ -11,11 +13,12 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        ArgParser parser = new(args);
+#if EXAMPLE_WITHOUT_MODULES
+         var parser = Args.ArgParser.Init(args);
         var parsedArgs = parser.Parse<ArgsOptions>();
 
         /// Check if primitives (Non-nullable) types are set
-        
+
         if (parser.IsSet(nameof(parsedArgs.Session))) // int prop check
             Console.WriteLine("[!] Session is set");
         else
@@ -30,17 +33,38 @@ internal class Program
             Console.WriteLine("[!] GetAdmin is true: {0}", parsedArgs.GetAdmin);
 
         /// Check if ref (nullable) types are set
-        
+
         if (parsedArgs.Interactive is not null)  // String prop check
             Console.WriteLine("[!] Interactive is set");
         else
             Console.WriteLine("[!] Interactive is not set");
 
-#if DEBUG
-        ArgParser.PrintArgsDebug(parsedArgs);
-        Console.Write("Hit any key to exit...");
-        Console.Read();
+#elif EXAMPLE_WITH_MODULES
+         var parser = Args.ArgParser.Init(args, true);
+
+        switch (parser.ModuleName)
+        {
+            case "create":
+                DoCreate(parser.Parse<CreateArgs>());
+                break;
+            case "list":
+                DoList(parser.Parse<ListArgs>());
+                break;
+            default:
+                Console.WriteLine("What module now ?!");
+                break;
+        }
 #endif
+
+
+
     }
 
+#if EXAMPLE_WITH_MODULES
+    private static void DoCreate(CreateArgs args) => Console.WriteLine("Create module execution flow");
+    private static void DoList(ListArgs args) => Console.WriteLine("List module execution flow");
+
+#endif
+
 }
+

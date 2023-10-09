@@ -1,4 +1,6 @@
-﻿namespace Args;
+﻿using Args;
+
+namespace ArgParserTemplate.Modules;
 
 /// <summary>
 /// Example Class for declaring arguments to the program:
@@ -8,7 +10,7 @@
 internal class ArgsOptions
 {
 
-    [Args("command", ShortName = "c", Required = true)]
+    [Args("command", ShortName = "c", Required = true, Description = "Command to execute")]
     public string Command { get; set; }
 
     [Args("pid", ShortName = "p")]

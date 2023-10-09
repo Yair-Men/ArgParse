@@ -46,7 +46,10 @@
   <ItemGroup>
     <Compile Include="Args\ArgParser.cs" />
     <Compile Include="Args\ArgsAttribute.cs" />
-    <Compile Include="Args\ArgsOptions.cs" />
+    <Compile Include="Examples\NoModules\ArgsOptions.cs" />
+    <Compile Include="Args\ModuleAttribute.cs" />
+    <Compile Include="Examples\Modules\CreateArgs.cs" />
+    <Compile Include="Examples\Modules\ListArgs.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

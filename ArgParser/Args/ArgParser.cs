@@ -17,10 +17,53 @@ public class ArgParser
     private IEnumerable<string> RawArgs { get; }
     public Dictionary<string, string> ParsedArgsDict { get; private set; } /// Leave public getter for old school access
     private Dictionary<string, ArgsAttribute> _argsAttributesDict { get; set; } = new();
+    public string ModuleName { get; } = null;
 
-    public ArgParser(string[] args)
+    private ArgParser(IEnumerable<string> args, string moduleName = null)
     {
         RawArgs = args;
+        ModuleName = moduleName;
+    }
+
+    public static ArgParser Init(string[] args, bool withModule = false)
+    {
+
+        if (args.Length == 0)
+        {
+            Console.WriteLine("[-] Usage: {0}ARGS", withModule ? "MODULE " : null);
+            Environment.Exit(0);
+        }
+
+        if (!withModule)
+        {
+            return new ArgParser(args);
+        }
+       
+        string moduleName = args[0].ToLower();
+
+        var props =
+            from a in AppDomain.CurrentDomain.GetAssemblies()
+            from t in a.GetTypes()
+            let attributes = t.GetCustomAttributes(typeof(ModuleAttribute), true)
+            where attributes != null && attributes.Length > 0
+            let modules = attributes.Cast<ModuleAttribute>().FirstOrDefault(x => x is not null)
+            select modules?.ModuleName.ToLower();
+
+
+        
+        if(!props.Contains(moduleName))
+        {
+            Console.WriteLine("[-] No such module '{0}'", moduleName);
+            
+            Console.WriteLine("Available Modules:");
+            foreach (string module in props)
+                Console.WriteLine($"- {module}");
+            
+            Environment.Exit(0);
+        }
+
+        Console.WriteLine("[!] Found Module: {0}", moduleName);
+        return new ArgParser(args.Skip(1), moduleName);
     }
 
     /// <summary>
@@ -34,19 +77,24 @@ public class ArgParser
     {
 
         // Get all properties (args) for current Module
-        var props = typeof(TModuleArgs).GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.GetProperty).Where(m => m.IsDefined(typeof(ArgsAttribute)));
+        var props = typeof(TModuleArgs)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.GetProperty)
+            .Where(m => m.IsDefined(typeof(ArgsAttribute)));
 
 
         // Error For dev (The given class have no props decorated with ArgsAttribute)
         if (props.Count() == 0)
         {
-            throw new Exception(String.Format("[-] Class '{0}' does not have any members implements '{1}'", typeof(TModuleArgs).FullName, nameof(ArgsAttribute)));
+            throw new Exception(String.Format("[-] Class '{0}' does not have any members implements '{1}'",
+                typeof(TModuleArgs).FullName, nameof(ArgsAttribute)));
         }
 
         ParsedArgsDict = MyParser(RawArgs);
 
         TModuleArgs parsedArgs = new();
-        
+
+        var t = props.Cast<ArgsAttribute>(); // TODO: Check what is t
+
         /// Check if the user supplied args, exist and declared as an ArgsAttribute
         /// Convert the argument to its corresponding (ArgsAttribute) prop type, and set value
         foreach (var prop in props)
@@ -105,6 +153,7 @@ public class ArgParser
                 if (argAttribute.Required)
                 {
                     Console.WriteLine($"[-] Required argument not given ({argAttribute.LongName})");
+                    PrintArgsHelp<TModuleArgs>();
                     Environment.Exit(0);
                 }
             }
@@ -137,6 +186,25 @@ public class ArgParser
     }
 
 
+
+    public void PrintArgsHelp<TModuleArgs>()
+    {
+
+        Console.WriteLine("Arguments:");
+        var moduleArgs = typeof(TModuleArgs).GetProperties();
+        
+        foreach (var prop in moduleArgs)
+        {
+            var arg = prop.GetCustomAttribute<ArgsAttribute>();
+            
+            string helpFormat = String.Format("--{0}{1}{2}",
+                arg.LongName, 
+                arg.ShortName != null ? $",-{arg.ShortName}" : null,
+                "\t" + arg.Description);
+
+            Console.WriteLine(helpFormat);
+        }
+    }
 
     /// <summary>
     /// Parsing string[] args using regex to allow using various methods to pass arguments from cli (/arg:VALUE, /arg=VALUE, --arg VALUE, -arg VALUE)
